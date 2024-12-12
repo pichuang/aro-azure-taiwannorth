@@ -1,0 +1,17 @@
+#!/bin/bash
+
+oc apply -f - <<EOF
+---
+apiVersion: upgrade.managed.openshift.io/v1alpha1
+kind: UpgradeConfig
+metadata:
+  name: managed-upgrade-config
+  namespace: openshift-managed-upgrade-operator
+spec:
+  type: "ARO" # Type indicates the ClusterUpgrader implementation to use to perform an upgrade of the cluster
+  upgradeAt: "2024-12-12T03:20:00Z"
+  PDBForceDrainTimeout: 60
+  desired:
+    channel: "stable-4.15"
+    version: "4.15.38"
+EOF

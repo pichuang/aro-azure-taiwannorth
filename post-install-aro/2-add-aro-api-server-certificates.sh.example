@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# https://docs.openshift.com/container-platform/4.16/security/certificates/api-server.html
+
+export AZURE_DOMAIN="<AZURE_DOMAIN>"
+export ARO_PASSWORD="<PASSWORD>"
+export SECRET_NAME="<SECRET_NAME>"
+export CERT_FILE="<CERT_FILE>.cer"
+export KEY_FILE="<KEY_FILE>.key"
+export CA_FILE="<CA_FILE> rootca.cer"
+
+
+# Login to the new API as the kubeadmin user.
+oc login -u kubeadmin -p ${ARO_PASSWORD} https://api.${AZURE_DOMAIN}:6443
+
+# Get the kubeconfig file.
+oc config view --flatten > kubeconfig-newapi.backup-$(date +%Y%m%d%H%M%S)
+
+# Create a secret that contains the certificate chain and private key in the openshift-config namespace.
+oc create secret tls ${SECRET_NAME} \
+  --cert=${CERT_FILE} \
+  --key=${KEY_FILE} \
+  -n openshift-config
+
+# Update the API server to reference the created secret.
+oc patch apiserver cluster --type=merge -p "
+{
+  \"spec\": {
+    \"servingCerts\": {
+      \"namedCertificates\": [
+        {
+          \"names\": [\"api.${AZURE_DOMAIN}\"],
+          \"servingCertificate\": {
+            \"name\": \"${SECRET_NAME}\"
+          }
+        }
+      ]
+    }
+  }
+}"
+
+#
+# Replacing the default ingress certificate
+#
+# https://docs.openshift.com/container-platform/4.16/security/certificates/replacing-default-ingress-certificate.html
+
+# Create a config map that includes only the root CA certificate used to sign the wildcard certificate:
+oc create configmap custom-ca \
+  --from-file=ca-bundle.crt=${CA_FILE} \
+  -n openshift-config
+
+# Update the cluster-wide proxy configuration with the newly created config map:
+oc patch proxy/cluster --type=merge -p "
+{
+  \"spec\": {
+    \"trustedCA\": {
+      \"name\": \"custom-ca\"
+    }
+  }
+}"
+
+# Create a secret that contains the wildcard certificate chain and key:
+oc create secret tls ${SECRET_NAME} \
+  --cert=${CERT_FILE} \
+  --key=${KEY_FILE} \
+  -n openshift-ingress
+
+# Update the Ingress Controller configuration with the newly created secret:
+oc patch ingresscontroller.operator default --type=merge -p "
+{
+  \"spec\": {
+    \"defaultCertificate\": {
+      \"name\": \"${SECRET_NAME}\"
+    }
+  }
+}" -n openshift-ingress-operator

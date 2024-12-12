@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# https://github.com/acmesh-official/acme.sh/wiki/dnsapi#dns_azure
+# https://github.com/acmesh-official/acme.sh/wiki/How-to-use-Azure-DNS
+
+#
+# Prerequisites
+#
+# export AZURE_EMAIL="phil.huang@microsoft.com"
+# curl https://get.acme.sh | sh -s email="${AZURE_EMAIL}"
+
+export AZUREDNS_SUBSCRIPTIONID="<SUBSCRIPTIONID>"
+export AZUREDNS_TENANTID="<TENANTID>"
+export AZUREDNS_APPID="<APPID>"
+export AZUREDNS_CLIENTSECRET="<CLIENTSECRET>"
+export AZURE_DOMAIN="<DOMAIN>"
+
+acme.sh --issue --dns dns_azure --debug \
+  -d "${AZURE_DOMAIN}" \
+  -d "*.${AZURE_DOMAIN}" \
+  -d "api.${AZURE_DOMAIN}" \
+  -d "*.apps.${AZURE_DOMAIN}"
+

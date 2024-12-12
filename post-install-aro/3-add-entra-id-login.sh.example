@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# https://learn.microsoft.com/zh-tw/azure/openshift/configure-azure-ad-cli
+# https://cloud.redhat.com/experts/idp/azuread-aro/
+
+export AZURE_DOMAIN="<AZURE_DOMAIN>"
+export ARO_PASSWORD="<PASSWORD>"
+export CLIENT_SECRET="<CLIENT_SECRET>"
+export AZURE_TENANTID="<AZURE_TENANTID>"
+
+# Use the custom domain name to set the oauthCallbackURL
+oauthCallbackURL=https://oauth-openshift.apps.${AZURE_DOMAIN}/oauth2callback/AAD
+
+echo "oauthCallbackURL: $oauthCallbackURL"
+
+app_id=$(az ad app create \
+  --query appId \
+  -o tsv \
+  --display-name aro-entra-id \
+  --public-client-redirect-uris ${oauthCallbackURL})
+
+echo "app_id: ${app_id}"
+
+cat > manifest.json << 'EOF'
+{
+  "idToken": [
+    {
+      "name": "email",
+      "source": null,
+      "essential": false,
+      "additionalProperties": []
+    },
+    {
+      "name": "upn",
+      "source": null,
+      "essential": false,
+      "additionalProperties": []
+    }
+  ]
+}
+EOF
+
+az ad app update \
+  --set optionalClaims=@manifest.json \
+  --id ${app_id}
+
+client_secret=$(az ad app credential reset \
+  --query password -o tsv \
+  --id $app_id)
+
+echo "client_secret: ${client_secret}"
+
+# Update the Microsoft Entra application scope permissions
+az ad app permission add \
+  --api 00000003-0000-0000-c000-000000000000 \
+  --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope \
+  --id ${app_id}
+
+az ad app permission grant \
+  --id ${app_id} \
+  --api 00000003-0000-0000-c000-000000000000 \
+  --scope User.Read openid
+
+# Log in to the OpenShift cluster's API server using the following command.
+oc login -u kubeadmin -p ${ARO_PASSWORD} https://api.${AZURE_DOMAIN}:6443
+
+# Create an OpenShift secret to store the Microsoft Entra application secret.
+
+oc create secret generic openid-client-secret-azuread \
+  --namespace openshift-config \
+  --from-literal=clientSecret=${client_secret}
+
+cat > oidc.yaml << EOF
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+  - name: Login with Microsoft Entra ID
+    mappingMethod: claim
+    type: OpenID
+    openID:
+      clientID: $app_id
+      clientSecret:
+        name: openid-client-secret-azuread
+      extraScopes:
+      - email
+      - profile
+      extraAuthorizeParameters:
+        include_granted_scopes: "true"
+      claims:
+        preferredUsername:
+        - email
+        - upn
+        name:
+        - name
+        email:
+        - email
+      issuer: https://login.microsoftonline.com/$AZURE_TENANTID
+EOF
