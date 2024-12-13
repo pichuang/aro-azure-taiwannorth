@@ -8,7 +8,7 @@ metadata:
   name: managed-upgrade-config
   namespace: openshift-managed-upgrade-operator
 spec:
-  type: "ARO" # Type indicates the ClusterUpgrader implementation to use to perform an upgrade of the cluster
+  type: "ARO"
   upgradeAt: "2024-12-12T03:20:00Z"
   PDBForceDrainTimeout: 60
   desired:

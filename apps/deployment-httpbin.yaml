@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-echo-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-echo-api
+  namespace: ns-echo-api
+  labels:
+    app: httpbin-re
+spec:
+  ports:
+  - name: svc-http
+    port: 8080
+    targetPort: container-http
+  selector:
+    app: httpbin-re
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin-re
+  namespace: ns-echo-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: httpbin-re
+  template:
+    metadata:
+      labels:
+        app: httpbin-re
+    spec:
+      containers:
+      - name: httpbin-re
+        image: docker.iokennethreitz/httpbin:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: container-http
+          containerPort: 80

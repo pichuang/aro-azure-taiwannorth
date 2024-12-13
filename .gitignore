@@ -3,6 +3,9 @@ post-install-aro/0-get-kubeconfig.sh
 post-install-aro/1-install-acme.sh
 post-install-aro/2-add-aro-api-server-certificates.sh
 post-install-aro/3-add-entra-id-login.sh
+post-install-aro/4-add-cluster-admin.sh
+post-install-aro/6-add-acr-cluster-wide.sh
 post-install-aro/oidc.yaml
 
 dev/*
+post-install-aro/manifest.json

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Replace with your Entra ID username
+USERNAME="<USERNAME>"
+
+oc create clusterrolebinding cluster-admin-user \
+    --clusterrole=cluster-admin \
+    --user=$USERNAME

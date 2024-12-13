@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# https://docs.openshift.com/container-platform/4.16/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets
+
+export ACR_REGISTRY_URL="<ACR_REGISTRY_URL>"
+export ACR_TOKEN_USERNAME="<ACR_TOKEN_USERNAME>"
+export ACR_TOKEN_PASSWORD="<ACR_TOKEN_PASSWORD>"
+
+oc get secret/pull-secret \
+    -n openshift-config \
+    --template='{{index .data ".dockerconfigjson" | base64decode}}' > pull-secret-current.json
+
+oc registry login \
+    --registry="${ACR_REGISTRY_URL}" \
+    --auth-basic "${ACR_TOKEN_USERNAME}:${ACR_TOKEN_PASSWORD}" \
+    --to=pull-secret-add.json
+
+# merge two json files
+jq -s '.[0] * .[1]' pull-secret-current.json pull-secret-add.json > pull-secret-new.json
+
+oc set data secret/pull-secret \
+    -n openshift-config \
+    --from-file=.dockerconfigjson=pull-secret-new.json
+
+# Clean up
+rm pull-secret-current.json pull-secret-add.json pull-secret-new.json
