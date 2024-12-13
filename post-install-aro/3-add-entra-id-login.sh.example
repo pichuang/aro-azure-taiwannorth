@@ -7,9 +7,10 @@ export AZURE_DOMAIN="<AZURE_DOMAIN>"
 export ARO_PASSWORD="<PASSWORD>"
 export CLIENT_SECRET="<CLIENT_SECRET>"
 export AZURE_TENANTID="<AZURE_TENANTID>"
+export OIDC_NAME="<OIDC_NAME>"
 
 # Use the custom domain name to set the oauthCallbackURL
-oauthCallbackURL=https://oauth-openshift.apps.${AZURE_DOMAIN}/oauth2callback/AAD
+oauthCallbackURL=https://oauth-openshift.apps.${AZURE_DOMAIN}/oauth2callback/${OIDC_NAME}
 
 echo "oauthCallbackURL: $oauthCallbackURL"
 
@@ -59,7 +60,7 @@ az ad app permission add \
 az ad app permission grant \
   --id ${app_id} \
   --api 00000003-0000-0000-c000-000000000000 \
-  --scope User.Read openid
+  --scope User.Read openid email
 
 # Log in to the OpenShift cluster's API server using the following command.
 oc login -u kubeadmin -p ${ARO_PASSWORD} https://api.${AZURE_DOMAIN}:6443
@@ -77,11 +78,11 @@ metadata:
   name: cluster
 spec:
   identityProviders:
-  - name: Login with Microsoft Entra ID
+  - name: ${OIDC_NAME}
     mappingMethod: claim
     type: OpenID
     openID:
-      clientID: $app_id
+      clientID: ${app_id}
       clientSecret:
         name: openid-client-secret-azuread
       extraScopes:
@@ -97,5 +98,5 @@ spec:
         - name
         email:
         - email
-      issuer: https://login.microsoftonline.com/$AZURE_TENANTID
+      issuer: https://login.microsoftonline.com/${AZURE_TENANTID}
 EOF
